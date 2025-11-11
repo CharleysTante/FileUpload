@@ -1,0 +1,15 @@
+<h2 style="margin-top:-20px;">Tangata Login für Upload Bereich</h2>
+<?php if (isset($error)) echo "<p style='color: red;'>$error</p>"; ?>
+<form  action="<?= $_SERVER['SCRIPT_NAME'] ?>" method="post">
+    <p>
+        <label style="font-size:14pt;">Benutzername:</label><br>
+        <input style="height:1.5em;" type="text" name="username" required>
+    </p>
+    <p>
+        <label style="font-size:14pt;">Passwort:</label><br>
+        <input style="height:1.5em;" type="password" name="password" required>
+    </p>
+    <p>
+        <button class="submit-btn" type="submit">Login</button>
+    </p>
+</form>

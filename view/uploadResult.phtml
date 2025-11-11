@@ -1,0 +1,10 @@
+<h1><?= $title ?></h1>
+<p class="success">Erfolgreich hochgeladene Dateien: <?= $totalUploaded ?></p>
+<p class="error">Abgelehnte Dateien: <?= $totalRejected ?></p>
+<p class="info">Log-Eintrag erstellt: <?= $timestamp ?></p>
+    
+<!-- Debug-Info anzeigen -->
+<?php if (! empty($files_dump)): ?>
+<div class="debug"><h2>Vollständige $_FILES Struktur:</h2><?= $files_dump ?></div>
+<?php endif ?>
+<div style="margin-top:1.5em"><a href='index.php'>Zurück zum Formular</a></div>

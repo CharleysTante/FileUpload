@@ -1,0 +1,7 @@
+.git
+.htaccess
+nbproject
+logs/*
+!logs/.htaccess
+files/*
+!files/.htaccess
