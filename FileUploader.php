@@ -41,6 +41,10 @@ class FileUploader
         $this->timestamp = date('Y-m-d H:i:s');
         $this->upldFiles = $_FILES[$fieldName] ?? null;
 
+        if ($this->config['debugMode']) {
+            $this->checkServerLimits();
+        }
+
         if (is_array($this->upldFiles)) {
             $this->analyzeFilesStructure();
             $this->processFiles();
@@ -106,6 +110,7 @@ class FileUploader
                 }
             }
         }
+        $this->debugInfo[] = '';
     }
 
     private function processFiles(): void
@@ -149,6 +154,29 @@ class FileUploader
         }
 
         $this->uploadFile($origName, $cleanedName, $tmpName);
+    }
+
+    private function checkServerLimits(): void
+    {
+        $this->debugInfo[] = '=== SERVER LIMITS ===';
+        $this->debugInfo[] = 'max_file_uploads: ' . ini_get('max_file_uploads');
+        $this->debugInfo[] = 'post_max_size: ' . ini_get('post_max_size');
+        $this->debugInfo[] = 'upload_max_filesize: ' . ini_get('upload_max_filesize');
+        $this->debugInfo[] = 'memory_limit: ' . ini_get('memory_limit');
+        $this->debugInfo[] = 'max_execution_time: ' . ini_get('max_execution_time');
+        $this->debugInfo[] = 'max_input_time: ' . ini_get('max_input_time');
+
+        // calculate actual upload size
+        if (isset($this->upldFiles['size'])) {
+            $totalSize = 0;
+            foreach ($this->upldFiles['size'] as $inputRaw) {
+                $totalSize += is_array($inputRaw)
+                    ? array_sum($inputRaw)
+                    : $inputRaw;
+            }
+            $this->debugInfo[] = "actual upload size: " . round($totalSize / 1024 / 1024, 2) . " MB";
+        }
+        $this->debugInfo[] = '';
     }
 
     private function shouldProcessFile(string $origName, int $error): bool
