@@ -1,4 +1,6 @@
 <?php
+header("Content-Security-Policy: default-src 'self'");
+header("X-Content-Type-Options: nosniff");
 session_start();
 
 if (empty($_SESSION['loggedin'])) {

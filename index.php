@@ -10,8 +10,8 @@ if (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
 */
 
 // set credentials
-$userName  = 'upload';
-$pwdHash   = '$2y$10$GRb9NWWM9AuLXw.fICc57.3P3OCkbtP4ezE1ONxOUiCenDLr4Ccs6';    // 3242
+$userName = 'upload';
+$pwdHash  = '$2y$10$GRb9NWWM9AuLXw.fICc57.3P3OCkbtP4ezE1ONxOUiCenDLr4Ccs6';    // 3242
 
 // logout functionality
 if (filter_input(INPUT_GET, 'logout')) {
@@ -30,7 +30,7 @@ else {
 ob_start();
 include $tmpl;
 $content = ob_get_clean();
-include './view/layout.phtml';    
+include './view/layout.phtml';
 
 function doLogin(?string &$error, string $userName, string $pwdHash) : bool
 {
