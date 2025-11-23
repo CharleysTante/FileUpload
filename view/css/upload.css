@@ -19,6 +19,16 @@ body {
     border-color: #2196f3;
 }
 
+.text-field.dragover {
+    border-color: #007bff;
+    background-color: #e7f3ff;
+}
+
+.upload-field-wrapper {
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
 .text-field {
     width: 100%;
     padding: 10px;
@@ -27,10 +37,6 @@ body {
     border-radius: 4px;
     box-sizing: border-box;
     cursor: default;
-}
-
-.file-input {
-    display: none;
 }
 
 .browse-btn {

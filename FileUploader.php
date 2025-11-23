@@ -8,6 +8,7 @@ class FileUploader
     // results
     private array $fUploaded = [];
     private int $totalRejected = 0;
+    private int $totalSkipped = 0;
     private array $debugInfo = [];
     private string $filesDump = '';
 
@@ -19,6 +20,7 @@ class FileUploader
 
     public function __construct(
         bool $debugMode,
+        bool $ajaxMode,         // currently not used
         string $uploadDir,
         string $logFile,
         string $debugLogFile,
@@ -26,6 +28,7 @@ class FileUploader
     ) {
         $this->config = [
             'debugMode' => $debugMode,
+            'ajaxMode' => $ajaxMode,
             'uploadDir' => rtrim($uploadDir, '/') . '/',
             'logFile' => $logFile,
             'debugLogFile' => $debugLogFile,
@@ -42,19 +45,28 @@ class FileUploader
         $this->upldFiles = $_FILES[$fieldName] ?? null;
 
         if ($this->config['debugMode']) {
-            $this->checkServerLimits();
+            $this->debugServerInfos();
         }
 
-        if (is_array($this->upldFiles)) {
-            $this->analyzeFilesStructure();
+        $this->analyzeFilesStructure();
+        try {
+            if (filter_input(INPUT_SERVER, 'REQUEST_METHOD') !== 'POST') {
+                throw new RuntimeException('Ungültige Anfragemethode');
+            }
             $this->processFiles();
-        }
-        else {
-            $this->debugInfo[] = 'No files found in upload data';
+
+            if (empty($this->fUploaded)) {
+                throw new RuntimeException('No allowed files found in upload data');
+            }
+            $this->sendSuccessResponse();                // for AJAX upload only
+        } catch (Exception $e) {
+            $this->sendErrorResponse($e->getMessage());  // for AJAX upload only
         }
         $this->writeLogs();
+        exit;
 
-        return $this->getResults();
+        // for POST upload only
+        // $this->dsplUploadResultsPOST();
     }
 
     private function getResults(): array
@@ -62,6 +74,7 @@ class FileUploader
         return [
             'totalUploaded' => count($this->fUploaded),
             'totalRejected' => $this->totalRejected,
+            'totalSkipped'  => $this->totalSkipped,
             'debugInfo'     => $this->debugInfo,
             'files_dump'    => $this->filesDump,
             'timestamp'     => $this->timestamp,
@@ -84,12 +97,12 @@ class FileUploader
         $this->debugInfo[] = '=== UPLOAD DEBUG LOG ===';
         $this->debugInfo[] = 'Timestamp: ' . date('Y-m-d H:i:s');
         $this->debugInfo[] = '=== COMPLETE $_FILES ARRAY ===';
-        
+
         // for browser display (with HTML formatting)
         ob_start();
         var_dump($_FILES ?? null);
         $this->filesDump = ob_get_clean();
-        
+
         // for text files (without HTML)
         $textDump = htmlspecialchars_decode(strip_tags($this->filesDump));
         $this->debugInfo[] = $textDump;
@@ -136,10 +149,11 @@ class FileUploader
     {
         if (empty($origName)) {
             $this->debugInfo[] = '  Skipped - empty file name(s)';
+            $this->totalSkipped++;
             return;
         }
 
-        $this->debugInfo[] = "  Temp: $tmpName, Error: $error";
+        $this->debugInfo[] = "  Temp: {$tmpName}, Error: {$error}";
 
         // tests in logical order
         if (! $this->shouldProcessFile($origName, $error)) {
@@ -156,9 +170,10 @@ class FileUploader
         $this->uploadFile($origName, $cleanedName, $tmpName);
     }
 
-    private function checkServerLimits(): void
+    private function debugServerInfos(): void
     {
-        $this->debugInfo[] = '=== SERVER LIMITS ===';
+        $this->debugInfo[] = '=== SERVER INFORMATION ===';
+        $this->debugInfo[] = 'REQUEST_METHOD: ' . filter_input(INPUT_SERVER, 'REQUEST_METHOD');
         $this->debugInfo[] = 'max_file_uploads: ' . ini_get('max_file_uploads');
         $this->debugInfo[] = 'post_max_size: ' . ini_get('post_max_size');
         $this->debugInfo[] = 'upload_max_filesize: ' . ini_get('upload_max_filesize');
@@ -183,12 +198,14 @@ class FileUploader
     {
         do {
             if (in_array($origName, $this->fUploaded)) {
-                $this->debugInfo[] = '  Skipped - File "' . $origName . '" already uploaded';
+                $this->debugInfo[] = '  Skipped - File "' . $origName . '" just uploaded';
+                $this->totalSkipped++;
                 break;
             }
 
             if ($error === UPLOAD_ERR_NO_FILE) {
-                $this->debugInfo[] = '  Skipped - Upload error: ' . $this->getUploadError($error) . ' (UPLOAD_ERR_NO_FILE)';
+                $this->debugInfo[] = '  Rejected - Upload error: ' . $this->getUploadError($error) . ' (UPLOAD_ERR_NO_FILE)';
+                $this->totalRejected++;
                 break;
             }
 
@@ -208,19 +225,19 @@ class FileUploader
     private function validateFile(string $origName, string $cleanedName, string $tmpName): bool
     {
         if (! file_exists($tmpName)) {
-            $this->debugInfo[] = '  Rejected - Temporary file does not exist';
+            $this->debugInfo[] = "  Rejected - Temporary file '{$tmpName}' does not exist";
             return false;
         }
 
         $fileExtension = strtolower(pathinfo($cleanedName, PATHINFO_EXTENSION));
 
         if (! in_array($fileExtension, $this->config['allowedExtensions'])) {
-            $this->debugInfo[] = "  Rejected - File extension not allowed: '$fileExtension'";
+            $this->debugInfo[] = "  Rejected - File extension not allowed: '{$fileExtension}'";
             return false;
         }
 
         if ($this->isExecutableFile($tmpName)) {
-            $this->debugInfo[] = "  Rejected - File is executable: '$origName'";
+            $this->debugInfo[] = "  Rejected - File is executable: '{$origName}'";
             return false;
         }
 
@@ -315,5 +332,57 @@ class FileUploader
             $this->upldFiles[$fieldIdx] ?? []
             :
             $this->upldFiles ?? [];
+    }
+
+    /**
+     * for $_POST upload only
+     *
+     * @return void
+     */
+    private function dsplUploadResultsPOST (): void
+    {
+        $title   = 'Upload-Ergebnis';
+        $results = $this->getResults();
+        ob_start();
+        include './view/uploadResult.phtml';
+        $content = ob_get_clean();
+        include './view/layout.phtml';
+    }
+
+    /**
+     * for AJAX upload only
+     *
+     * @param array $results
+     * @return void
+     */
+    private function sendSuccessResponse(): void
+    {
+        http_response_code(200);
+
+        $nUploaded = $this->getResults()['totalUploaded'];
+        $nRejected = $this->getResults()['totalRejected'];
+        echo json_encode([
+            'success'  => true,
+            'message'  => 'Upload erfolgreich! - ' . $nUploaded . ' Datei(en) hochgeladen',
+            'rejected' => $nRejected ?
+                "$nRejected weitere Datei(en) wurde zum Hochladen abgelehnt!"
+                :
+                null,
+        ]);
+    }
+
+    /**
+     * for AJAX upload only
+     *
+     * @param string $errorMessage
+     * @return void
+     */
+    private function sendErrorResponse(string $errorMessage): void
+    {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'error' => $errorMessage
+        ]);
     }
 }

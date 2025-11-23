@@ -1,37 +1,47 @@
     <h1>Datei-Upload Formular</h1>
-    
+
+    <!-- Fortschrittsbalken und Nachrichtencontainer -->
+    <div class="progress-container">
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+        <div class="message-container"></div>
+    </div>
+
     <form id="uploadForm" action="./doUpload.php" method="post" enctype="multipart/form-data">
-        <!-- Versteckte Inputs für die tatsächlichen Dateien -->
-        <input type="file" class="hidden-input" id="actualFileInput1" name="field[1][]" multiple>
-        <input type="file" class="hidden-input" id="actualFileInput2" name="field[2][]" multiple>
-        <input type="file" class="hidden-input" id="actualFileInput3" name="field[3][]" multiple>
+        <div class="upload-field-wrapper">
+            <!-- Versteckte Inputs für die tatsächlichen Dateien -->
+            <input type="file" class="hidden-input" id="actualFileInput1" name="field[1][]" multiple>
+            <input type="file" class="hidden-input" id="actualFileInput2" name="field[2][]" multiple>
+            <input type="file" class="hidden-input" id="actualFileInput3" name="field[3][]" multiple>
 
-        <!-- Feld 1 -->
-        <div class="section-header">Feld 1:</div>
-        <div class="upload-section" id="section1">
-            <input type="text" class="text-field" id="textField1" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
-            <button type="button" class="browse-btn" onclick="openFileDialog('actualFileInput1')">Dateien auswählen</button>
-            <div class="file-info" id="fileInfo1"></div>
+            <!-- Feld 1 -->
+            <div class="section-header">Feld 1:</div>
+            <div class="upload-section" id="section1">
+                <input type="text" class="text-field" id="textField1" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
+                <button type="button" class="browse-btn" data-field="1">Dateien auswählen</button>
+                <div class="file-info" id="fileInfo1"></div>
+            </div>
+
+            <!-- Feld 2 -->
+            <div class="section-header">Feld 2:</div>
+            <div class="upload-section" id="section2">
+                <input type="text" class="text-field" id="textField2" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
+                <button type="button" class="browse-btn" data-field="2">Dateien auswählen</button>
+                <div class="file-info" id="fileInfo2"></div>
+            </div>
+
+            <!-- Feld 3 -->
+            <div class="section-header">Feld 3:</div>
+            <div class="upload-section" id="section3">
+                <input type="text" class="text-field" id="textField3" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen">
+                <button type="button" class="browse-btn" data-field="3">Dateien auswählen</button>
+                <div class="file-info" id="fileInfo3"></div>
+            </div>
+
+            <button type="submit" class="submit-btn">Hochladen</button>
         </div>
-
-        <!-- Feld 2 -->
-        <div class="section-header">Feld 2:</div>
-        <div class="upload-section" id="section2">
-            <input type="text" class="text-field" id="textField2" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
-            <button type="button" class="browse-btn" onclick="openFileDialog('actualFileInput2')">Dateien auswählen</button>
-            <div class="file-info" id="fileInfo2"></div>
-        </div>
-
-        <!-- Feld 3 -->
-        <div class="section-header">Feld 3:</div>
-        <div class="upload-section" id="section3">
-            <input type="text" class="text-field" id="textField3" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen">
-            <button type="button" class="browse-btn" onclick="openFileDialog('actualFileInput3')">Dateien auswählen</button>
-            <div class="file-info" id="fileInfo3"></div>
-        </div>
-
-        <button type="submit" class="submit-btn">Formular absenden</button>
     </form>
-    <script type="text/javascript" src="./view/js/uploadForm.js"></script>
+    <script src="./view/js/uploadForm.js"></script>
 
     <p style="margin-top:3em;"><a href="?logout=1">Abmelden</a></p>

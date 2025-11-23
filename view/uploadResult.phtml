@@ -1,8 +1,9 @@
 <h1><?= $title ?></h1>
 <p class="success">Erfolgreich hochgeladene Dateien: <?= $results['totalUploaded'] ?></p>
+<p class="error">Übersprungene Dateien: <?= $results['totalSkipped'] ?></p>
 <p class="error">Abgelehnte Dateien: <?= $results['totalRejected'] ?></p>
 <p class="info">Log-Eintrag erstellt: <?= $results['timestamp'] ?></p>
-    
+
 <!-- Debug-Info anzeigen -->
 <?php if (!empty($results['files_dump'])): ?>
 <div class="debug"><h2>Vollständige $_FILES Struktur:</h2><?= $results['files_dump'] ?></div>

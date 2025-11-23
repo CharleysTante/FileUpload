@@ -1,197 +1,236 @@
-// Funktion zum vollständigen Zurücksetzen des Formulars
-// Notwendig nur! für den Zurückbutton des Browsers
-function resetUploadForm() {
-    const form = document.getElementById('uploadForm');
-    if (form) {
-        form.reset();
+class FileUploadUI {
+    constructor() {
+        this.fieldCount = document.querySelectorAll('.upload-section').length;
+        this.initializeEvents();
     }
-    
-    // Textfelder leeren
-    const textFields = document.querySelectorAll('.text-field');
-    textFields.forEach(field => field.value = '');
-    
-    // File-Info Texte leeren
-    const fileInfos = document.querySelectorAll('.file-info');
-    fileInfos.forEach(info => info.textContent = '');
-    
-    // FieldFiles-Objekte zurücksetzen
-    if (typeof fieldFiles !== 'undefined') {
-        fieldFiles.field1 = [];
-        fieldFiles.field2 = [];
-        fieldFiles.field3 = [];
-    }
-    
-    // Versteckte File-Inputs zurücksetzen
-    const hiddenInputs = document.querySelectorAll('.hidden-input');
-    hiddenInputs.forEach(input => {
-        // Erstelle ein neues Input-Element um die Files zu leeren
-        const newInput = input.cloneNode(true);
-        input.parentNode.replaceChild(newInput, input);
-        
-        // Event-Listener wieder hinzufügen
-        if (newInput.id === 'actualFileInput1') {
-            newInput.addEventListener('change', function() {
-                updateTextField(this, 'textField1', 'field1');
-            });
-        } else if (newInput.id === 'actualFileInput2') {
-            newInput.addEventListener('change', function() {
-                updateTextField(this, 'textField2', 'field2');
-            });
-        } else if (newInput.id === 'actualFileInput3') {
-            newInput.addEventListener('change', function() {
-                updateTextField(this, 'textField3', 'field3');
-            });
+
+    initializeEvents() {
+        for (let i = 1; i <= this.fieldCount; i++) {
+            const textField = document.getElementById(`textField${i}`);
+            const fileInput = document.getElementById(`actualFileInput${i}`);
+            const browseBtn = document.querySelector(`.browse-btn[data-field="${i}"]`);
+
+            // Text field Click Event
+            textField.addEventListener('click', () => this.triggerFileInput(fileInput));
+            
+            // Button Click Event
+            browseBtn.addEventListener('click', () => this.triggerFileInput(fileInput));
+            
+            // File Input Change
+            fileInput.addEventListener('change', (e) => this.updateTextField(e, i, textField));
+            
+            // Drag & Drop Events
+            this.setupDragAndDrop(i, textField, fileInput);
         }
-    });
-}
 
-// Formular zurücksetzen wenn die Seite geladen wird
-window.addEventListener('DOMContentLoaded', resetUploadForm);
-
-// Auch beim Zurück-Button des Browsers
-window.addEventListener('pageshow', function(event) {
-    if (event.persisted) {
-        resetUploadForm();
+        // Form Submit
+        document.getElementById('uploadForm').addEventListener('submit', (e) => this.handleSubmit(e));
     }
-});
 
-// ---------------------------------------------------------------- //
-
-// Doppelklick für alle Sections um den Dateiauswahldialog zu öffnen
-['section1', 'section2', 'section3'].forEach(sectionId => {
-    document.getElementById(sectionId).addEventListener('dblclick', function() {
-        const number = sectionId.replace('section', '');
-        openFileDialog('actualFileInput' + number);
-    });
-});
-
-// ---------------------------------------------------------------- //
-
-// Dateien werden pro Feld gespeichert
-const fieldFiles = {
-    field1: [],
-    field2: [], 
-    field3: []
-};
-
-// Funktion zum Öffnen des Dateiauswahldialogs
-function openFileDialog(inputId) {
-    document.getElementById(inputId).click();
-}
-
-// Funktion zum Aktualisieren des Textfelds bei Dateiauswahl
-function updateTextField(fileInput, textFieldId, fieldKey) {
-    const files = fileInput.files;
-    const textField = document.getElementById(textFieldId);
-    const fileInfo = document.getElementById('fileInfo' + textFieldId.slice(-1));
-    
-    if (files.length > 0) {
-        // Dateien zum Feld hinzufügen
-        fieldFiles[fieldKey] = Array.from(files);
-        
-        const fileNames = Array.from(files).map(file => file.name).join(', ');
-        textField.value = fileNames;
-        fileInfo.textContent = `${files.length} Datei(en) ausgewählt`;
-        
-        // Verstecktes Input aktualisieren
-        updateHiddenInput(fieldKey);
-    } else {
-        textField.value = '';
-        fileInfo.textContent = '';
+    triggerFileInput(fileInput) {
+        fileInput.click();
     }
-}
 
-// Aktualisiert das versteckte File Input
-function updateHiddenInput(fieldKey) {
-    // Da wir File Inputs nicht direkt manipulieren können,
-    // müssen wir das Formular mit FormData bearbeiten
-    // Für jetzt lassen wir die ursprünglichen Inputs
-}
+    updateTextField(event, fieldId, textField) {
+        const files = Array.from(event.target.files);
+        const fileInfo = document.getElementById(`fileInfo${fieldId}`);
 
-// Drag & Drop Funktionen für alle drei Bereiche
-function setupDragAndDrop(sectionId, textFieldId, fieldKey, fileInputId) {
-    const section = document.getElementById(sectionId);
-    const textField = document.getElementById(textFieldId);
-    const fileInput = document.getElementById(fileInputId);
-    const fileInfo = document.getElementById('fileInfo' + textFieldId.slice(-1));
-
-    // Verhindere Standardverhalten für Drag-Events
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        section.addEventListener(eventName, preventDefaults, false);
-    });
-
-    // Hervorhebung beim Dragover
-    ['dragenter', 'dragover'].forEach(eventName => {
-        section.addEventListener(eventName, () => {
-            section.classList.add('dragover');
-        }, false);
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        section.addEventListener(eventName, () => {
-            section.classList.remove('dragover');
-        }, false);
-    });
-
-    // Handle Drop
-    section.addEventListener('drop', (e) => {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        
         if (files.length > 0) {
-            // Dateien zum Feld hinzufügen
-            fieldFiles[fieldKey] = Array.from(files);
-            
-            // Aktualisiere das Textfeld
-            const fileNames = Array.from(files).map(file => file.name).join(', ');
-            textField.value = fileNames;
-            fileInfo.textContent = `${files.length} Datei(en) per Drag & Drop hinzugefügt`;
-            
-            // Aktualisiere das versteckte File Input
-            updateFileInput(fileInput, files);
+            textField.value = files.map(f => f.name).join(', ');
+            fileInfo.textContent = `${files.length} Datei(en) ausgewählt`;
+        } else {
+            textField.value = '';
+            fileInfo.textContent = '';
         }
-    }, false);
-}
-
-// Aktualisiert ein File Input Element (funktioniert nur für einzelne Dateien)
-function updateFileInput(fileInput, files) {
-    // Da wir die files-Property nicht direkt setzen können,
-    // erstellen wir ein neues DataTransfer Objekt
-    const dt = new DataTransfer();
-    for (let file of files) {
-        dt.items.add(file);
     }
-    fileInput.files = dt.files;
+
+    setupDragAndDrop(fieldId, textField, fileInput) {
+        const sectionUpl = document.getElementById(`section${fieldId}`);
+        const fileInfo = document.getElementById(`fileInfo${fieldId}`);
+
+        // Drag & Drop Event Handler
+        sectionUpl.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            sectionUpl.classList.add('dragover');
+        });
+
+        sectionUpl.addEventListener('dragleave', () => {
+            sectionUpl.classList.remove('dragover');
+        });
+
+        sectionUpl.addEventListener('drop', (e) => {
+            e.preventDefault();
+            sectionUpl.classList.remove('dragover');
+            this.handleFileDrop(e.dataTransfer.files, fileInput, textField, fileInfo);
+        });
+    }
+
+    handleFileDrop(newFiles, fileInput, textField, fileInfo) {
+        if (newFiles.length === 0) return;
+
+        const existingFiles = Array.from(fileInput.files || []);
+        const existingFileKeys = existingFiles.map(f => `${f.name}-${f.size}`);
+        const uniqueNewFiles = Array.from(newFiles).filter(newFile => 
+            !existingFileKeys.includes(`${newFile.name}-${newFile.size}`)
+        );
+
+        if (uniqueNewFiles.length === 0) {
+            fileInfo.textContent = 'Alle Dateien waren bereits vorhanden';
+            return;
+        }
+
+        // Kombiniere Dateien und aktualisiere Input
+        const allFiles = [...existingFiles, ...uniqueNewFiles];
+        const dataTransfer = new DataTransfer();
+        allFiles.forEach(file => dataTransfer.items.add(file));
+        fileInput.files = dataTransfer.files;
+
+        // Aktualisiere UI
+        textField.value = allFiles.map(f => f.name).join(', ');
+        this.updateFileInfoMessage(allFiles.length, uniqueNewFiles.length, newFiles.length, fileInfo);
+    }
+
+    updateFileInfoMessage(totalFiles, newFilesCount, droppedFilesCount, fileInfo) {
+        const duplicates = droppedFilesCount - newFilesCount;
+
+        fileInfo.textContent = (duplicates > 0) ?
+            `${totalFiles} Datei(en) ausgewählt (${newFilesCount} neu, ${duplicates} Doppelte ignoriert)`
+            :
+            `${totalFiles} Datei(en) ausgewählt (${newFilesCount} neu hinzugefügt)`;
+
+    }
+
+    async handleSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        
+        // Prüfe ob Dateien ausgewählt wurden
+        let hasFiles = false;
+        for (let i = 1; i <= this.fieldCount; i++) {
+            const fileInput = document.getElementById(`actualFileInput${i}`);
+            if (fileInput.files.length > 0) {
+                hasFiles = true;
+                break;
+            }
+        }
+
+        if (!hasFiles) {
+            alert('Bitte wählen Sie mindestens eine Datei aus!');
+            return;
+        }
+        
+        // Zurücksetzen der Nachricht
+        this.showMessage('', '');
+        
+        try {
+            const result = await this.uploadWithProgress(formData);
+            
+            if (result.success) {
+                let successMessage = `<div>${result.message}</div>`;
+
+                if (result.rejected !== null) {
+                    successMessage += `<div class="message-rejected">${result.rejected}</div>`;
+                }
+                this.showMessage(successMessage, 'success');
+
+                // Formular zurücksetzen
+                event.target.reset();
+                for (let i = 1; i <= this.fieldCount; i++) {
+                    document.getElementById(`textField${i}`).value = '';
+                    document.getElementById(`fileInfo${i}`).textContent = '';
+                }
+                // Progress Bar nach Erfolg langsam ausblenden - Zeit verdoppelt auf 6 Sekunden
+                setTimeout(() => {
+                    this.updateProgressBar(0, true);
+                    this.showMessage('', ''); // Nachricht auch ausblenden
+                }, 60000); // 6000ms = 6 Sekunden
+            } else {
+                throw new Error(result.error || 'Upload fehlgeschlagen');
+            }
+        } catch (error) {
+            console.error('Fehler:', error);
+            alert('Upload fehlgeschlagen: ' + error.message);
+            // Progress Bar bei Fehler sofort ausblenden
+            this.updateProgressBar(0, true);
+            this.showMessage('', ''); // Nachricht ausblenden
+        }
+    }
+
+    uploadWithProgress(formData) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            // Progress Event
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    this.updateProgressBar(percentComplete, false);
+                }
+            });
+
+            // Load Event
+            xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        resolve(response);
+                    } catch (e) {
+                        console.error('Fehler beim Parsen der Response:', e);
+                        reject(new Error('Ungültige Antwort vom Server'));
+                    }
+                } else {
+                    try {
+                        const errorResponse = JSON.parse(xhr.responseText);
+                        reject(new Error(errorResponse.error || `HTTP Error: ${xhr.status}`));
+                    } catch (e) {
+                        reject(new Error(`HTTP Error: ${xhr.status}`));
+                    }
+                }
+            });
+
+            // Error Event
+            xhr.addEventListener('error', () => {
+                reject(new Error('Netzwerkfehler - Verbindung zum Server fehlgeschlagen'));
+            });
+
+            // Timeout Event
+            xhr.addEventListener('timeout', () => {
+                reject(new Error('Zeitüberschreitung - Server antwortet nicht'));
+            });
+
+            xhr.open('POST', 'doUpload.php');
+            xhr.timeout = 30000;
+            xhr.send(formData);
+        });
+    }
+
+    updateProgressBar(percent, hide = false) {
+        const progressContainer = document.querySelector('.progress-container');
+        const progressFill = document.querySelector('.progress-fill');
+
+        if (hide) {
+            progressContainer.style.display = 'none';
+            progressFill.style.width = '0%';
+        } else {
+            progressContainer.style.display = 'block';
+            progressFill.style.width = `${percent}%`;
+        }
+    }
+
+    showMessage(message, type = '') {
+        const messageContainer = document.querySelector('.message-container');
+        messageContainer.innerHTML = message;
+        messageContainer.className = 'message-container';
+        
+        if (type === 'success') {
+            messageContainer.classList.add('message-success');
+        } else if (type === 'error') {
+            messageContainer.classList.add('message-error');
+        }
+    }
 }
 
-// Hilfsfunktion zur Verhinderung von Standardverhalten
-function preventDefaults(e) {
-    e.preventDefault();
-    e.stopPropagation();
-}
-
-// Event Listener für die versteckten File Inputs
-document.getElementById('actualFileInput1').addEventListener('change', function() {
-    updateTextField(this, 'textField1', 'field1');
-});
-
-document.getElementById('actualFileInput2').addEventListener('change', function() {
-    updateTextField(this, 'textField2', 'field2');
-});
-
-document.getElementById('actualFileInput3').addEventListener('change', function() {
-    updateTextField(this, 'textField3', 'field3');
-});
-
-// Formular Submit Handler
-document.getElementById('uploadForm').addEventListener('submit', function(e) {
-    // Hier könnten wir zusätzliche Validierung durchführen
-    console.log('Formular wird abgeschickt');
-});
-
-// Initialisiere Drag & Drop für alle drei Bereiche
+// Initialisierung wenn DOM geladen
 document.addEventListener('DOMContentLoaded', () => {
-    setupDragAndDrop('section1', 'textField1', 'field1', 'actualFileInput1');
-    setupDragAndDrop('section2', 'textField2', 'field2', 'actualFileInput2');
-    setupDragAndDrop('section3', 'textField3', 'field3', 'actualFileInput3');
+    new FileUploadUI();
 });
