@@ -1,6 +1,10 @@
 class FileUploadUI {
     constructor() {
         this.fieldCount = document.querySelectorAll('.upload-section').length;
+        this.uploadStartTime = null;
+        this.lastLoaded = 0;
+        this.lastTime = null;
+        this.hideProgressTimer = null;
         this.initializeEvents();
     }
 
@@ -97,7 +101,6 @@ class FileUploadUI {
             `${totalFiles} Datei(en) ausgewählt (${newFilesCount} neu, ${duplicates} Doppelte ignoriert)`
             :
             `${totalFiles} Datei(en) ausgewählt (${newFilesCount} neu hinzugefügt)`;
-
     }
 
     async handleSubmit(event) {
@@ -118,10 +121,13 @@ class FileUploadUI {
             alert('Bitte wählen Sie mindestens eine Datei aus!');
             return;
         }
-        
-        // Zurücksetzen der Nachricht
-        this.showMessage('', '');
-        
+
+        // before resetting, do delete existing timers
+        this.clearHideProgressTimer();
+
+        // immediate reset of the progress bar without animation
+        this.resetProgressBarImmediately();
+
         try {
             const result = await this.uploadWithProgress(formData);
             
@@ -133,42 +139,97 @@ class FileUploadUI {
                 }
                 this.showMessage(successMessage, 'success');
 
-                // Formular zurücksetzen
+                // reset form
                 event.target.reset();
                 for (let i = 1; i <= this.fieldCount; i++) {
                     document.getElementById(`textField${i}`).value = '';
                     document.getElementById(`fileInfo${i}`).textContent = '';
                 }
-                // Progress Bar nach Erfolg langsam ausblenden - Zeit verdoppelt auf 6 Sekunden
-                setTimeout(() => {
+
+                // set timer for hiding the progress bar
+                this.hideProgressTimer = setTimeout(() => {
                     this.updateProgressBar(0, true);
-                    this.showMessage('', ''); // Nachricht auch ausblenden
-                }, 60000); // 6000ms = 6 Sekunden
+                    this.showMessage('', '');
+                    this.hideProgressTimer = null;
+                }, 6000); // 6 seconds
             } else {
                 throw new Error(result.error || 'Upload fehlgeschlagen');
             }
         } catch (error) {
             console.error('Fehler:', error);
-            alert('Upload fehlgeschlagen: ' + error.message);
-            // Progress Bar bei Fehler sofort ausblenden
-            this.updateProgressBar(0, true);
-            this.showMessage('', ''); // Nachricht ausblenden
+            this.showMessage('Upload fehlgeschlagen: ' + error.message, 'error');
+            
+            // also in case of error: set timer
+            this.hideProgressTimer = setTimeout(() => {
+                this.updateProgressBar(0, true);
+                this.showMessage('', '');
+                this.hideProgressTimer = null;
+            }, 4000);
         }
+    }
+
+    // clears the hide progress timer
+    clearHideProgressTimer() {
+        if (this.hideProgressTimer) {
+            clearTimeout(this.hideProgressTimer);
+            this.hideProgressTimer = null;
+        }
+    }
+
+    // resets the progress bar IMMEDIATELY without animation
+    resetProgressBarImmediately() {
+        // do reset timer
+        this.clearHideProgressTimer();
+        
+        const progressFill = document.querySelector('.progress-fill');
+        const progressText = document.querySelector('.progress-text');
+        const progressSpeed = document.querySelector('.progress-speed');
+        const progressTime = document.querySelector('.progress-time');
+        
+        // temporarily disable transition
+        progressFill.classList.add('no-transition');
+        
+        // immediate reset
+        progressFill.style.width = '0%';
+        progressText.textContent = '0%';
+        progressText.style.left = '50%';
+        progressText.classList.remove('white-text');
+        progressSpeed.textContent = 'Geschwindigkeit: -';
+        progressTime.textContent = 'Verbleibend: -';
+        
+        // reset message
+        this.showMessage('', '');
+        
+        // reset upload timer
+        this.uploadStartTime = Date.now();
+        this.lastLoaded = 0;
+        this.lastTime = Date.now();
+        
+        // display progress container
+        document.querySelector('.progress-container').style.display = 'block';
+        
+        // do reactivate transition after a short delay
+        setTimeout(() => {
+            progressFill.classList.remove('no-transition');
+        }, 50);
     }
 
     uploadWithProgress(formData) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             
-            // Progress Event
+            // progress event
             xhr.upload.addEventListener('progress', (e) => {
                 if (e.lengthComputable) {
                     const percentComplete = (e.loaded / e.total) * 100;
-                    this.updateProgressBar(percentComplete, false);
+                    const speed = this.calculateSpeed(e.loaded);
+                    const remainingTime = this.calculateRemainingTime(e.loaded, e.total, speed);
+                    
+                    this.updateProgressBar(percentComplete, false, speed, remainingTime);
                 }
             });
 
-            // Load Event
+            // load event
             xhr.addEventListener('load', () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
                     try {
@@ -204,16 +265,110 @@ class FileUploadUI {
         });
     }
 
-    updateProgressBar(percent, hide = false) {
+    calculateSpeed(currentLoaded) {
+        const now = Date.now();
+        const timeDiff = (now - this.lastTime) / 1000;                          // in seconds
+        const loadedDiff = currentLoaded - this.lastLoaded;
+        
+        this.lastLoaded = currentLoaded;
+        this.lastTime = now;
+        
+        if (timeDiff > 0) {
+            const speed = loadedDiff / timeDiff;                                // bytes pro second
+            return this.formatSpeed(speed);
+        }
+        return '-';
+    }
+
+    formatSpeed(bytesPerSecond) {
+        if (bytesPerSecond === '-') return bytesPerSecond;
+        
+        if (bytesPerSecond < 1024) {
+            return Math.round(bytesPerSecond) + ' B/s';
+        } else if (bytesPerSecond < 1024 * 1024) {
+            return (bytesPerSecond / 1024).toFixed(1) + ' KB/s';
+        } else {
+            return (bytesPerSecond / (1024 * 1024)).toFixed(1) + ' MB/s';
+        }
+    }
+
+    calculateRemainingTime(loaded, total, currentSpeed) {
+        if (currentSpeed === '-' || loaded === 0) return '-';
+
+        const remainingBytes = total - loaded;
+
+        // do convert speed back to bytes per second for calculation
+        let bytesPerSecond;
+        if (currentSpeed.includes('MB/s')) {
+            bytesPerSecond = parseFloat(currentSpeed) * 1024 * 1024;
+        } else if (currentSpeed.includes('KB/s')) {
+            bytesPerSecond = parseFloat(currentSpeed) * 1024;
+        } else {
+            bytesPerSecond = parseFloat(currentSpeed);
+        }
+
+        if (bytesPerSecond > 0) {
+            const seconds = remainingBytes / bytesPerSecond;
+            return this.formatTime(seconds);
+        }
+        return '-';
+    }
+
+    formatTime(seconds) {
+        if (seconds < 60) {
+            return Math.round(seconds) + 's';
+        } else if (seconds < 3600) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.round(seconds % 60);
+            return `${minutes}m ${secs}s`;
+        } else {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.round((seconds % 3600) / 60);
+            return `${hours}h ${minutes}m`;
+        }
+    }
+
+    updateProgressBar(percent, hide = false, speed = '-', remainingTime = '-') {
         const progressContainer = document.querySelector('.progress-container');
         const progressFill = document.querySelector('.progress-fill');
+        const progressText = document.querySelector('.progress-text');
+        const progressSpeed = document.querySelector('.progress-speed');
+        const progressTime = document.querySelector('.progress-time');
 
         if (hide) {
             progressContainer.style.display = 'none';
             progressFill.style.width = '0%';
+            progressText.textContent = '0%';
+            progressText.style.left = '50%';
+            progressText.classList.remove('white-text');
+            progressFill.classList.remove('uploading');
         } else {
             progressContainer.style.display = 'block';
             progressFill.style.width = `${percent}%`;
+
+            // fixed central position
+            progressText.style.left = '50%';
+
+            // dynamic colour adjustment based on progress
+            if (percent >= 50) {
+                progressText.classList.add('white-text');
+            } else {
+                progressText.classList.remove('white-text');
+            }
+
+            // percentage display
+            progressText.textContent = `${percent.toFixed(1)}%`;
+            
+            // display speed and remaining time
+            progressSpeed.textContent = `Geschwindigkeit: ${speed}`;
+            progressTime.textContent = `Verbleibend: ${remainingTime}`;
+            
+            // animation for active upload
+            if (percent > 0 && percent < 100) {
+                progressFill.classList.add('uploading');
+            } else {
+                progressFill.classList.remove('uploading');
+            }
         }
     }
 
@@ -230,7 +385,7 @@ class FileUploadUI {
     }
 }
 
-// Initialisierung wenn DOM geladen
+// initialisation when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new FileUploadUI();
 });

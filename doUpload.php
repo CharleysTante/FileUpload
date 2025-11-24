@@ -15,7 +15,7 @@ $ajaxMode  = true;
 $uploadDir = __DIR__ . '/files/';
 $logFile   = __DIR__ . '/logs/log.txt';
 $debugLogFile = __DIR__ . '/logs/debug_log.txt';
-$allowedExtensions = ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'exe'];
+$allowedExtensions = ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx'];
 
 // Instanziierung der Klasse 'FileUploader'
 require_once 'FileUploader.php';

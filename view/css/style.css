@@ -31,6 +31,7 @@
     overflow: hidden;
     position: relative;
     border: 1px solid #ced4da;
+    border-radius: 4px;
 }
 
 .progress-fill {
@@ -45,6 +46,49 @@
         rgba(255,255,255,0.3) 85%, 
         rgba(255,255,255,0.3) 100%);
     background-size: 20px 100%;
+    position: relative;
+    border-radius: 3px;
+}
+
+/* for the immediate switch-off of the transition */
+.progress-fill.no-transition {
+    transition: none !important;
+}
+
+/* numerical percentage display */
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #333;
+    text-shadow: 0 0 2px rgba(255,255,255,0.7);
+    z-index: 2;
+    transition: left 0.3s ease, color 0.3s ease;
+    min-width: 40px;
+    text-align: center;
+}
+
+/* white text colour for dark background */
+.progress-text.white-text {
+    color: white;
+    text-shadow: 0 0 2px rgba(0,0,0,0.7);
+}
+
+/* additional status information */
+.progress-details {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #666;
+    font-family: Arial, sans-serif;
+}
+
+.progress-speed, .progress-time {
+    font-weight: bold;
 }
 
 .message-container {
@@ -69,4 +113,15 @@
     padding: 0.5rem;
     color: #ff9933;
     font-size: 0.85rem;
+}
+
+/* animation for active upload */
+.progress-fill.uploading {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.9; }
+    100% { opacity: 1; }
 }
