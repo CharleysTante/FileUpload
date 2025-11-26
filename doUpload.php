@@ -1,11 +1,15 @@
 <?php
+/**
+ * called by 'uploadForm.js'
+ */
 header("Content-Security-Policy: default-src 'self'");
 header("X-Content-Type-Options: nosniff");
+header("Content-Type: application/json");
 session_start();
 
 if (empty($_SESSION['loggedin'])) {
     http_response_code(404);
-    echo '<h1>Seite nicht gefunden</h1>';
+    echo json_encode('<h1>Seite nicht gefunden</h1>');
     exit;
 }
 

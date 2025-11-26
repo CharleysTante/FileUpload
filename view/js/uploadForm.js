@@ -5,34 +5,89 @@ class FileUploadUI {
         this.lastLoaded = 0;
         this.lastTime = null;
         this.hideProgressTimer = null;
+        this.postMaxSize = null;
         this.initializeEvents();
+        this.loadServerConfig();
+    }
+
+    async loadServerConfig() {
+        try {
+            const response = await fetch('./getConfig.php');
+            const result = await response.json();
+
+            if (result.success && result.config) {
+                this.postMaxSize = result.config.post_max_size;
+                console.log('Server-Konfiguration geladen:', result.config);
+            } else {
+                console.warn('Konfiguration konnte nicht geladen werden:', result.error);
+            }
+        } catch (error) {
+            console.error('Fehler beim Laden der Server-Konfiguration:', error);
+        }
     }
 
     initializeEvents() {
-        for (let i = 1; i <= this.fieldCount; i++) {
+        // Verzögerte Initialisierung um DOM sicherzustellen
+        setTimeout(() => {
+            for (let i = 1; i <= this.fieldCount; i++) {
+                this.initializeField(i);
+            }
+
+            // Form Submit
+            const uploadForm = document.getElementById('uploadForm');
+            if (uploadForm) {
+                uploadForm.addEventListener('submit', (e) => this.handleSubmit(e));
+            }
+        }, 0);
+    }
+
+    initializeField(i) {
+        try {
             const textField = document.getElementById(`textField${i}`);
             const fileInput = document.getElementById(`actualFileInput${i}`);
             const browseBtn = document.querySelector(`.browse-btn[data-field="${i}"]`);
 
-            // Text field Click Event
-            textField.addEventListener('click', () => this.triggerFileInput(fileInput));
+            if (!textField || !fileInput || !browseBtn) {
+                console.warn(`Elemente für Feld ${i} nicht gefunden`);
+                return;
+            }
+
+            // Text field - Verwende mousedown statt click
+            textField.addEventListener('mousedown', this.createTextFieldHandler(fileInput));
             
             // Button Click Event
-            browseBtn.addEventListener('click', () => this.triggerFileInput(fileInput));
+            browseBtn.addEventListener('click', this.createButtonHandler(fileInput));
             
             // File Input Change
             fileInput.addEventListener('change', (e) => this.updateTextField(e, i, textField));
             
             // Drag & Drop Events
             this.setupDragAndDrop(i, textField, fileInput);
+        } catch (error) {
+            console.error(`Fehler bei Initialisierung von Feld ${i}:`, error);
         }
-
-        // Form Submit
-        document.getElementById('uploadForm').addEventListener('submit', (e) => this.handleSubmit(e));
     }
 
-    triggerFileInput(fileInput) {
-        fileInput.click();
+    // Separater Handler für Textfeld
+    createTextFieldHandler(fileInput) {
+        return (e) => {
+            e.preventDefault();
+            setTimeout(() => {
+                if (fileInput) {
+                    fileInput.click();
+                }
+            }, 10);
+        };
+    }
+
+    // Separater Handler für Button
+    createButtonHandler(fileInput) {
+        return (e) => {
+            e.preventDefault();
+            if (fileInput) {
+                fileInput.click();
+            }
+        };
     }
 
     updateTextField(event, fieldId, textField) {
@@ -41,16 +96,18 @@ class FileUploadUI {
 
         if (files.length > 0) {
             textField.value = files.map(f => f.name).join(', ');
-            fileInfo.textContent = `${files.length} Datei(en) ausgewählt`;
+            if (fileInfo) fileInfo.textContent = `${files.length} Datei(en) ausgewählt`;
         } else {
             textField.value = '';
-            fileInfo.textContent = '';
+            if (fileInfo) fileInfo.textContent = '';
         }
     }
 
     setupDragAndDrop(fieldId, textField, fileInput) {
         const sectionUpl = document.getElementById(`section${fieldId}`);
         const fileInfo = document.getElementById(`fileInfo${fieldId}`);
+
+        if (!sectionUpl) return;
 
         // Drag & Drop Event Handler
         sectionUpl.addEventListener('dragover', (e) => {
@@ -72,14 +129,14 @@ class FileUploadUI {
     handleFileDrop(newFiles, fileInput, textField, fileInfo) {
         if (newFiles.length === 0) return;
 
-        const existingFiles = Array.from(fileInput.files || []);
+        const existingFiles = Array.from(fileInput?.files || []);
         const existingFileKeys = existingFiles.map(f => `${f.name}-${f.size}`);
         const uniqueNewFiles = Array.from(newFiles).filter(newFile => 
             !existingFileKeys.includes(`${newFile.name}-${newFile.size}`)
         );
 
         if (uniqueNewFiles.length === 0) {
-            fileInfo.textContent = 'Alle Dateien waren bereits vorhanden';
+            if (fileInfo) fileInfo.textContent = 'Alle Dateien waren bereits vorhanden';
             return;
         }
 
@@ -87,14 +144,16 @@ class FileUploadUI {
         const allFiles = [...existingFiles, ...uniqueNewFiles];
         const dataTransfer = new DataTransfer();
         allFiles.forEach(file => dataTransfer.items.add(file));
-        fileInput.files = dataTransfer.files;
+        if (fileInput) fileInput.files = dataTransfer.files;
 
         // Aktualisiere UI
-        textField.value = allFiles.map(f => f.name).join(', ');
+        if (textField) textField.value = allFiles.map(f => f.name).join(', ');
         this.updateFileInfoMessage(allFiles.length, uniqueNewFiles.length, newFiles.length, fileInfo);
     }
 
     updateFileInfoMessage(totalFiles, newFilesCount, droppedFilesCount, fileInfo) {
+        if (!fileInfo) return;
+
         const duplicates = droppedFilesCount - newFilesCount;
 
         fileInfo.textContent = (duplicates > 0) ?
@@ -111,7 +170,7 @@ class FileUploadUI {
         let hasFiles = false;
         for (let i = 1; i <= this.fieldCount; i++) {
             const fileInput = document.getElementById(`actualFileInput${i}`);
-            if (fileInput.files.length > 0) {
+            if (fileInput && fileInput.files.length > 0) {
                 hasFiles = true;
                 break;
             }
@@ -122,15 +181,35 @@ class FileUploadUI {
             return;
         }
 
-        // before resetting, do delete existing timers
-        this.clearHideProgressTimer();
+        // Verbesserte Vorab-Prüfung mit serverseitiger Konfiguration
+        let totalSize = 0;
+        for (let i = 1; i <= this.fieldCount; i++) {
+            const fileInput = document.getElementById(`actualFileInput${i}`);
+            if (fileInput) {
+                for (let file of fileInput.files) {
+                    totalSize += file.size;
+                }
+            }
+        }
 
-        // immediate reset of the progress bar without animation
-        this.resetProgressBarImmediately();
+        // Prüfung auf POST_MAX_SIZE Überschreitung (mit 10% Puffer für Overhead)
+        if (this.postMaxSize !== null) {
+            const estimatedSizeWithOverhead = totalSize * 1.1;
+
+            if (estimatedSizeWithOverhead > this.postMaxSize) {
+                const maxSizeMB  = (this.postMaxSize / (1024 * 1024)).toFixed(1);
+                const currSizeMB = (estimatedSizeWithOverhead / (1024 * 1024)).toFixed(1);
+                alert(`Die Datei(en) sind zu groß (${currSizeMB} MB) zum Hochladen!`
+                    + ` Maximal ${maxSizeMB} MB gesamt sind zulässig!`);
+                return;
+            }
+        }
+
+        this.clearHideProgressTimer();
 
         try {
             const result = await this.uploadWithProgress(formData);
-            
+
             if (result.success) {
                 let successMessage = `<div>${result.message}</div>`;
 
@@ -140,10 +219,18 @@ class FileUploadUI {
                 this.showMessage(successMessage, 'success');
 
                 // reset form
-                event.target.reset();
+                const form = event.target;
+                if (form && form.reset) {
+                    form.reset();
+                }
+
+                // Zusätzlich UI zurücksetzen
                 for (let i = 1; i <= this.fieldCount; i++) {
-                    document.getElementById(`textField${i}`).value = '';
-                    document.getElementById(`fileInfo${i}`).textContent = '';
+                    const textField = document.getElementById(`textField${i}`);
+                    const fileInfo = document.getElementById(`fileInfo${i}`);
+
+                    if (textField) textField.value = '';
+                    if (fileInfo) fileInfo.textContent = '';
                 }
 
                 // set timer for hiding the progress bar
@@ -153,12 +240,21 @@ class FileUploadUI {
                     this.hideProgressTimer = null;
                 }, 6000); // 6 seconds
             } else {
-                throw new Error(result.error || 'Upload fehlgeschlagen');
+                const error = new Error(result.error || 'Upload fehlgeschlagen');
+                error.code = result.code || 0;
+                throw error;
             }
         } catch (error) {
             console.error('Fehler:', error);
+
+            // exceeded 'post_max_size'
+            if (error.code === 1001) {
+                alert('Upload fehlgeschlagen: ' + error.message);
+                return;
+            }
+
             this.showMessage('Upload fehlgeschlagen: ' + error.message, 'error');
-            
+
             // also in case of error: set timer
             this.hideProgressTimer = setTimeout(() => {
                 this.updateProgressBar(0, true);
@@ -180,37 +276,41 @@ class FileUploadUI {
     resetProgressBarImmediately() {
         // do reset timer
         this.clearHideProgressTimer();
-        
+
+        const progressContainer = document.querySelector('.progress-container');
         const progressFill = document.querySelector('.progress-fill');
         const progressText = document.querySelector('.progress-text');
         const progressSpeed = document.querySelector('.progress-speed');
         const progressTime = document.querySelector('.progress-time');
-        
-        // temporarily disable transition
+
+        if (!progressFill || !progressText || !progressSpeed || !progressTime) {
+            return;
+        }
+
         progressFill.classList.add('no-transition');
-        
-        // immediate reset
         progressFill.style.width = '0%';
         progressText.textContent = '0%';
         progressText.style.left = '50%';
         progressText.classList.remove('white-text');
         progressSpeed.textContent = 'Geschwindigkeit: -';
         progressTime.textContent = 'Verbleibend: -';
-        
-        // reset message
+
         this.showMessage('', '');
-        
-        // reset upload timer
+
+        // do reset upload timer
         this.uploadStartTime = Date.now();
         this.lastLoaded = 0;
         this.lastTime = Date.now();
-        
-        // display progress container
-        document.querySelector('.progress-container').style.display = 'block';
-        
+
+        if (progressContainer) {
+            progressContainer.style.display = 'block';
+        }
+
         // do reactivate transition after a short delay
         setTimeout(() => {
-            progressFill.classList.remove('no-transition');
+            if (progressFill) {
+                progressFill.classList.remove('no-transition');
+            }
         }, 50);
     }
 
@@ -218,18 +318,16 @@ class FileUploadUI {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             
-            // progress event
             xhr.upload.addEventListener('progress', (e) => {
                 if (e.lengthComputable) {
                     const percentComplete = (e.loaded / e.total) * 100;
-                    const speed = this.calculateSpeed(e.loaded);
+                    const speed = this.calculateSpeed(e.loaded, e.total);
                     const remainingTime = this.calculateRemainingTime(e.loaded, e.total, speed);
                     
                     this.updateProgressBar(percentComplete, false, speed, remainingTime);
                 }
             });
 
-            // load event
             xhr.addEventListener('load', () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
                     try {
@@ -237,26 +335,34 @@ class FileUploadUI {
                         resolve(response);
                     } catch (e) {
                         console.error('Fehler beim Parsen der Response:', e);
-                        reject(new Error('Ungültige Antwort vom Server'));
+                        const error = new Error('Ungültige Antwort vom Server');
+                        error.code = 1002;
+                        reject(error);
                     }
                 } else {
                     try {
                         const errorResponse = JSON.parse(xhr.responseText);
-                        reject(new Error(errorResponse.error || `HTTP Error: ${xhr.status}`));
+                        const error = new Error(errorResponse.error || `HTTP Error: ${xhr.status}`);
+                        error.code = errorResponse.code || xhr.status;
+                        reject(error);
                     } catch (e) {
-                        reject(new Error(`HTTP Error: ${xhr.status}`));
+                        const error = new Error(`HTTP Error: ${xhr.status}`);
+                        error.code = xhr.status;
+                        reject(error);
                     }
                 }
             });
 
-            // Error Event
             xhr.addEventListener('error', () => {
-                reject(new Error('Netzwerkfehler - Verbindung zum Server fehlgeschlagen'));
+                const error = new Error('Netzwerkfehler - Verbindung zum Server fehlgeschlagen');
+                error.code = 1003;
+                reject(error);
             });
 
-            // Timeout Event
             xhr.addEventListener('timeout', () => {
-                reject(new Error('Zeitüberschreitung - Server antwortet nicht'));
+                const error = new Error('Zeitüberschreitung - Server antwortet nicht');
+                error.code = 1004;
+                reject(error);
             });
 
             xhr.open('POST', 'doUpload.php');
@@ -269,10 +375,10 @@ class FileUploadUI {
         const now = Date.now();
         const timeDiff = (now - this.lastTime) / 1000;                          // in seconds
         const loadedDiff = currentLoaded - this.lastLoaded;
-        
+
         this.lastLoaded = currentLoaded;
         this.lastTime = now;
-        
+
         if (timeDiff > 0) {
             const speed = loadedDiff / timeDiff;                                // bytes pro second
             return this.formatSpeed(speed);
@@ -282,9 +388,9 @@ class FileUploadUI {
 
     formatSpeed(bytesPerSecond) {
         if (bytesPerSecond === '-') return bytesPerSecond;
-        
+
         if (bytesPerSecond < 1024) {
-            return Math.round(bytesPerSecond) + ' B/s';
+            return Math.round(bytesPerSecond) + ' Byte/s';
         } else if (bytesPerSecond < 1024 * 1024) {
             return (bytesPerSecond / 1024).toFixed(1) + ' KB/s';
         } else {
@@ -330,10 +436,10 @@ class FileUploadUI {
 
     updateProgressBar(percent, hide = false, speed = '-', remainingTime = '-') {
         const progressContainer = document.querySelector('.progress-container');
-        const progressFill = document.querySelector('.progress-fill');
-        const progressText = document.querySelector('.progress-text');
+        const progressFill  = document.querySelector('.progress-fill');
+        const progressText  = document.querySelector('.progress-text');
         const progressSpeed = document.querySelector('.progress-speed');
-        const progressTime = document.querySelector('.progress-time');
+        const progressTime  = document.querySelector('.progress-time');
 
         if (hide) {
             progressContainer.style.display = 'none';
@@ -374,9 +480,13 @@ class FileUploadUI {
 
     showMessage(message, type = '') {
         const messageContainer = document.querySelector('.message-container');
+        if (! messageContainer) {
+            return;
+        }
+
         messageContainer.innerHTML = message;
-        messageContainer.className = 'message-container';
-        
+        messageContainer.className = 'message-container';                       // reset any other class
+
         if (type === 'success') {
             messageContainer.classList.add('message-success');
         } else if (type === 'error') {
@@ -387,5 +497,9 @@ class FileUploadUI {
 
 // initialisation when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new FileUploadUI();
+    try {
+        new FileUploadUI();
+    } catch (error) {
+        console.error('Fehler bei der Initialisierung des FileUploadUI:', error);
+    }
 });

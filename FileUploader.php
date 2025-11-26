@@ -39,18 +39,54 @@ class FileUploader
         $this->initializeDebugLog();
     }
 
+    /**
+     * Get server upload configuration for client-side validation
+     */
+    public static function getUploadConfig(): array
+    {
+        return [
+            'post_max_size' => self::convertToBytes(ini_get('post_max_size')),
+            'upload_max_filesize' => self::convertToBytes(ini_get('upload_max_filesize')),
+            'max_file_uploads' => ini_get('max_file_uploads')
+        ];
+    }
+
+    /**
+     * Convert PHP size string to bytes
+     */
+    private static function convertToBytes($value): int
+    {
+        $value = trim($value);
+        $last = strtolower($value[strlen($value)-1]);
+        $number = (int)$value;
+
+        return match ($last) {
+            'g' => $number * 1024 ** 3,
+            'm' => $number * 1024 ** 2,
+            'k' => $number * 1024 ** 1,
+            default => $number,
+        };
+    }
+
     public function processUpload(string $fieldName): array
     {
         $this->timestamp = date('Y-m-d H:i:s');
         $this->upldFiles = $_FILES[$fieldName] ?? null;
+        $requestMethod   = filter_input(INPUT_SERVER, 'REQUEST_METHOD') ?? '';
 
         if ($this->config['debugMode']) {
-            $this->debugServerInfos();
+            $this->debugServerInfos($requestMethod);
         }
 
         $this->analyzeFilesStructure();
         try {
-            if (filter_input(INPUT_SERVER, 'REQUEST_METHOD') !== 'POST') {
+            if ($requestMethod === 'POST' && !$this->upldFiles) {
+                $postMaxSize  = ini_get('post_max_size');
+                $errorMessage = "Gesamtgröße der Dateien überschreitet das Limit von {$postMaxSize}";
+                throw new RuntimeException($errorMessage, 1001);
+            }
+
+            if ($requestMethod !== 'POST') {
                 throw new RuntimeException('Ungültige Anfragemethode');
             }
             $this->processFiles();
@@ -59,7 +95,7 @@ class FileUploader
                 throw new RuntimeException('No allowed files found in upload data');
             }
             $this->sendSuccessResponse();                // for AJAX upload only
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $this->sendErrorResponse($e->getMessage());  // for AJAX upload only
         }
         $this->writeLogs();
@@ -170,7 +206,7 @@ class FileUploader
         $this->uploadFile($origName, $cleanedName, $tmpName);
     }
 
-    private function debugServerInfos(): void
+    private function debugServerInfos(string $requestMethod): void
     {
         $this->debugInfo[] = '=== SERVER INFORMATION ===';
         $this->debugInfo[] = 'REQUEST_METHOD: ' . filter_input(INPUT_SERVER, 'REQUEST_METHOD');
@@ -377,12 +413,13 @@ class FileUploader
      * @param string $errorMessage
      * @return void
      */
-    private function sendErrorResponse(string $errorMessage): void
+    private function sendErrorResponse(string $errorMessage, int $errorCode = 0): void
     {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'error' => $errorMessage
+            'error' => $errorMessage,
+            'code'  => $errorCode,
         ]);
     }
 }
