@@ -21,7 +21,7 @@ $logFile   = __DIR__ . '/logs/log.txt';
 $debugLogFile = __DIR__ . '/logs/debug_log.txt';
 $allowedExtensions = ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx'];
 
-// Instanziierung der Klasse 'FileUploader'
+// instantiation of the 'FileUploader' class
 require_once 'FileUploader.php';
 try {
     $uploader = new FileUploader(
@@ -36,11 +36,13 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => 'Schwerwiegender Fehler: ' . $e->getMessage()
+        'error'   => 'Schwerwiegender Fehler: ' . $e->getMessage(),
     ]);
 
-    $timestamp = date('Y-m-d H:i:s');
-    file_put_contents('upload.log', "[$timestamp] FATAL ERROR: {$e->getMessage()}\n", FILE_APPEND);
+    // write debug log file
+    $timestamp  = date('Y-m-d H:i:s');
+    $logMessage = "[$timestamp] FATAL ERROR: {$e->getMessage()}" . PHP_EOL;
+    file_put_contents($debugLogFile, $logMessage, FILE_APPEND | LOCK_EX);
     exit;
 }
 $uploader->processUpload('field');
