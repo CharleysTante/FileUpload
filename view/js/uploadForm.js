@@ -52,23 +52,22 @@ class FileUploadUI {
                 return;
             }
 
-            // Text field - Verwende mousedown statt click
-            textField.addEventListener('mousedown', this.createTextFieldHandler(fileInput));
+            // text field click event
+            textField.addEventListener('click', this.createTextFieldHandler(fileInput));
             
-            // Button Click Event
+            // button click event
             browseBtn.addEventListener('click', this.createButtonHandler(fileInput));
             
-            // File Input Change
+            // file input change
             fileInput.addEventListener('change', (e) => this.updateTextField(e, i, textField));
             
-            // Drag & Drop Events
+            // drag & drop events
             this.setupDragAndDrop(i, textField, fileInput);
         } catch (error) {
             console.error(`Fehler bei Initialisierung von Feld ${i}:`, error);
         }
     }
 
-    // Separater Handler für Textfeld
     createTextFieldHandler(fileInput) {
         return (e) => {
             e.preventDefault();
@@ -80,7 +79,6 @@ class FileUploadUI {
         };
     }
 
-    // Separater Handler für Button
     createButtonHandler(fileInput) {
         return (e) => {
             e.preventDefault();
@@ -162,26 +160,19 @@ class FileUploadUI {
             `${totalFiles} Datei(en) ausgewählt (${newFilesCount} neu hinzugefügt)`;
     }
 
-    async handleSubmit(event) {
-        event.preventDefault();
-        const formData = new FormData(event.target);
-        
-        // Prüfe ob Dateien ausgewählt wurden
-        let hasFiles = false;
+    // check if at least one file has been selected
+    checkFilesSelected() {
         for (let i = 1; i <= this.fieldCount; i++) {
             const fileInput = document.getElementById(`actualFileInput${i}`);
             if (fileInput && fileInput.files.length > 0) {
-                hasFiles = true;
-                break;
+                return true;
             }
         }
+        return false;
+    }
 
-        if (!hasFiles) {
-            alert('Bitte wählen Sie mindestens eine Datei aus!');
-            return;
-        }
-
-        // Verbesserte Vorab-Prüfung mit serverseitiger Konfiguration
+    // check total file size against server configuration
+    checkTotalSize() {
         let totalSize = 0;
         for (let i = 1; i <= this.fieldCount; i++) {
             const fileInput = document.getElementById(`actualFileInput${i}`);
@@ -192,7 +183,7 @@ class FileUploadUI {
             }
         }
 
-        // Prüfung auf POST_MAX_SIZE Überschreitung (mit 10% Puffer für Overhead)
+        // check for POST_MAX_SIZE exceeded (with 10% buffer for overhead)
         if (this.postMaxSize !== null) {
             const estimatedSizeWithOverhead = totalSize * 1.1;
 
@@ -201,8 +192,25 @@ class FileUploadUI {
                 const currSizeMB = (estimatedSizeWithOverhead / (1024 * 1024)).toFixed(1);
                 alert(`Die Datei(en) sind zu groß (${currSizeMB} MB) zum Hochladen!`
                     + ` Maximal ${maxSizeMB} MB gesamt sind zulässig!`);
-                return;
+                return false;
             }
+        }
+        return true;
+    }
+
+    async handleSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+
+        // check whether files have been selected
+        if (! this.checkFilesSelected()) {
+            alert('Bitte wählen Sie mindestens eine Datei aus!');
+            return;
+        }
+
+        // check total file size against server limits
+        if (! this.checkTotalSize()) {
+            return;
         }
 
         this.clearHideProgressTimer();
@@ -224,7 +232,7 @@ class FileUploadUI {
                     form.reset();
                 }
 
-                // Zusätzlich UI zurücksetzen
+                // reset UI additionally
                 for (let i = 1; i <= this.fieldCount; i++) {
                     const textField = document.getElementById(`textField${i}`);
                     const fileInfo = document.getElementById(`fileInfo${i}`);
@@ -272,16 +280,26 @@ class FileUploadUI {
         }
     }
 
+    // resets upload timing and progress metrics
+    resetUploadMetrics() {
+        this.uploadStartTime = null;
+        this.lastLoaded = 0;
+        this.lastTime = null;
+    }
+
     // resets the progress bar IMMEDIATELY without animation
     resetProgressBarImmediately() {
         // do reset timer
         this.clearHideProgressTimer();
 
+        // reset upload metrics
+        this.resetUploadMetrics();
+
         const progressContainer = document.querySelector('.progress-container');
-        const progressFill = document.querySelector('.progress-fill');
-        const progressText = document.querySelector('.progress-text');
+        const progressFill  = document.querySelector('.progress-fill');
+        const progressText  = document.querySelector('.progress-text');
         const progressSpeed = document.querySelector('.progress-speed');
-        const progressTime = document.querySelector('.progress-time');
+        const progressTime  = document.querySelector('.progress-time');
 
         if (!progressFill || !progressText || !progressSpeed || !progressTime) {
             return;
@@ -290,17 +308,12 @@ class FileUploadUI {
         progressFill.classList.add('no-transition');
         progressFill.style.width = '0%';
         progressText.textContent = '0%';
-        progressText.style.left = '50%';
+        progressText.style.left  = '50%';
         progressText.classList.remove('white-text');
         progressSpeed.textContent = 'Geschwindigkeit: -';
-        progressTime.textContent = 'Verbleibend: -';
+        progressTime.textContent  = 'Verbleibend: -';
 
         this.showMessage('', '');
-
-        // do reset upload timer
-        this.uploadStartTime = Date.now();
-        this.lastLoaded = 0;
-        this.lastTime = Date.now();
 
         if (progressContainer) {
             progressContainer.style.display = 'block';
@@ -321,7 +334,7 @@ class FileUploadUI {
             xhr.upload.addEventListener('progress', (e) => {
                 if (e.lengthComputable) {
                     const percentComplete = (e.loaded / e.total) * 100;
-                    const speed = this.calculateSpeed(e.loaded, e.total);
+                    const speed = this.calculateSpeed(e.loaded);
                     const remainingTime = this.calculateRemainingTime(e.loaded, e.total, speed);
                     
                     this.updateProgressBar(percentComplete, false, speed, remainingTime);
@@ -329,6 +342,19 @@ class FileUploadUI {
             });
 
             xhr.addEventListener('load', () => {
+                // final speed calculation - always show average speed at the end
+                if (this.uploadStartTime) {
+                    const totalTime = (Date.now() - this.uploadStartTime) / 1000;
+                    if (totalTime > 0) {
+                        const averageSpeed = this.getTotalFileSize() / totalTime;
+                        const formattedAverageSpeed = this.formatSpeed(averageSpeed);
+                        const progressSpeed = document.querySelector('.progress-speed');
+                        if (progressSpeed) {
+                            progressSpeed.textContent = `Durchschnitt: ${formattedAverageSpeed}`;
+                        }
+                    }
+                }
+
                 if (xhr.status >= 200 && xhr.status < 300) {
                     try {
                         const response = JSON.parse(xhr.responseText);
@@ -371,23 +397,67 @@ class FileUploadUI {
         });
     }
 
+    // helper method to calculate total file size
+    getTotalFileSize() {
+        let totalSize = 0;
+        for (let i = 1; i <= this.fieldCount; i++) {
+            const fileInput = document.getElementById(`actualFileInput${i}`);
+            if (fileInput) {
+                for (let file of fileInput.files) {
+                    totalSize += file.size;
+                }
+            }
+        }
+        return totalSize;
+    }
+
     calculateSpeed(currentLoaded) {
         const now = Date.now();
-        const timeDiff = (now - this.lastTime) / 1000;                          // in seconds
+
+        // Initialize on first call
+        if (!this.uploadStartTime) {
+            this.uploadStartTime = now;
+            this.lastTime = now;
+            this.lastLoaded = currentLoaded;
+            return '-';
+        }
+
+        const timeSinceStart = (now - this.uploadStartTime) / 1000;
+
+        // only start speed calculation after 0.1 seconds
+        if (timeSinceStart < 0.1) {
+            return '-';
+        }
+
+        const timeDiff = (now - this.lastTime) / 1000; // in seconds
+
+        // prevent division by zero or negative time
+        if (timeDiff <= 0) {
+            // Update tracking but return 0 speed
+            this.lastLoaded = currentLoaded;
+            this.lastTime = now;
+            return '0 Byte/s';
+        }
+
         const loadedDiff = currentLoaded - this.lastLoaded;
 
+        // update tracking variables
         this.lastLoaded = currentLoaded;
         this.lastTime = now;
 
-        if (timeDiff > 0) {
-            const speed = loadedDiff / timeDiff;                                // bytes pro second
-            return this.formatSpeed(speed);
+        // if no progress was made, speed is 0
+        if (loadedDiff <= 0) {
+            return '0 Byte/s';
         }
-        return '-';
+
+        const speed = loadedDiff / timeDiff; // bytes per second
+        return this.formatSpeed(speed);
     }
 
     formatSpeed(bytesPerSecond) {
-        if (bytesPerSecond === '-') return bytesPerSecond;
+        if (bytesPerSecond === '-' || bytesPerSecond <= 0) {
+            return '0 Byte/s';
+        }
 
         if (bytesPerSecond < 1024) {
             return Math.round(bytesPerSecond) + ' Byte/s';
@@ -401,16 +471,23 @@ class FileUploadUI {
     calculateRemainingTime(loaded, total, currentSpeed) {
         if (currentSpeed === '-' || loaded === 0) return '-';
 
+        // handle zero speed case
+        if (currentSpeed === '0 Byte/s') {
+            return '-';
+        }
+
         const remainingBytes = total - loaded;
 
-        // do convert speed back to bytes per second for calculation
+        // extract numeric value from speed string for calculation
         let bytesPerSecond;
         if (currentSpeed.includes('MB/s')) {
             bytesPerSecond = parseFloat(currentSpeed) * 1024 * 1024;
         } else if (currentSpeed.includes('KB/s')) {
             bytesPerSecond = parseFloat(currentSpeed) * 1024;
-        } else {
+        } else if (currentSpeed.includes('Byte/s')) {
             bytesPerSecond = parseFloat(currentSpeed);
+        } else {
+            return '-';
         }
 
         if (bytesPerSecond > 0) {
