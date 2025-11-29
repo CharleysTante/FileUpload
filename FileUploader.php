@@ -6,13 +6,13 @@ class FileUploader
     private array $config;
 
     // results
-    private array $fUploaded = [];
+    private array $fUploaded   = [];
     private int $totalRejected = 0;
-    private int $totalSkipped = 0;
-    private array $debugInfo = [];
-    private string $filesDump = '';
+    private int $totalSkipped  = 0;
+    private array $debugInfo   = [];
+    private string $filesDump  = '';
 
-    // uploaded file raw data
+    // uploaded file raw data from $_FILES
     private ?array $upldFiles;
 
     // process upload timestamp
@@ -41,6 +41,9 @@ class FileUploader
 
     /**
      * Get server upload configuration for client-side validation
+     * for 'uploadForm.js' only
+     *
+     * @return array
      */
     public static function getUploadConfig(): array
     {
@@ -53,8 +56,12 @@ class FileUploader
 
     /**
      * Convert PHP size string to bytes
+     * for 'uploadForm.js' only
+     *
+     * @param string $value
+     * @return int
      */
-    private static function convertToBytes($value): int
+    private static function convertToBytes(string $value): int
     {
         $value = trim($value);
         $last = strtolower($value[strlen($value)-1]);
@@ -196,7 +203,7 @@ class FileUploader
             return;
         }
 
-        $cleanedName = $this->cleanFilename($origName);
+        $cleanedName = $this->cleanFilename($origName, $tmpName);
 
         if (! $this->validateFile($origName, $cleanedName, $tmpName)) {
             $this->totalRejected++;
@@ -268,7 +275,10 @@ class FileUploader
         $fileExtension = strtolower(pathinfo($cleanedName, PATHINFO_EXTENSION));
 
         if (! in_array($fileExtension, $this->config['allowedExtensions'])) {
-            $this->debugInfo[] = "  Rejected - File extension not allowed: '{$fileExtension}'";
+            $this->debugInfo[] = ($fileExtension === 'blank') ?
+                "  Rejected - Couldn't detect file 'mime/type'"
+                :
+                "  Rejected - File extension not allowed: '{$fileExtension}'";
             return false;
         }
 
@@ -293,17 +303,28 @@ class FileUploader
         }
     }
 
-    private function cleanFilename(string $filename): ?string
+    private function cleanFilename(string $origName, string $tmpName): ?string
     {
-        $replacements = [
-            'ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss',
-            'Ä' => 'Ae', 'Ö' => 'Oe', 'Ü' => 'Ue',
-        ];
-        $filename = str_replace(array_keys($replacements), array_values($replacements), $filename);
-        $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
-        $filename = preg_replace('/_{2,}/', '_', $filename);
+        $cleanName = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $origName);
+        $cleanName = preg_replace('/[<>:"|?*\\\\\/\x00-\x1F\x7F]/u', '', $cleanName);
+        $fileExten = $this->getDetectedExt($tmpName);
+        $basename  = pathinfo($cleanName, PATHINFO_FILENAME);
 
-        return $filename;
+        return $basename .'.'. $fileExten;
+    }
+
+    private function getDetectedExt(string $tmpName) : string
+    {
+        $detectedMime = mime_content_type($tmpName);
+        return match ($detectedMime) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            default => 'blank'
+        };
     }
 
     private function isExecutableFile(string $filepath): bool
@@ -314,14 +335,7 @@ class FileUploader
             "#!",
             "\xCA\xFE\xBA\xBE",
         ];
-
-        $handle = fopen($filepath, 'rb');
-        if (! $handle) {
-            return true;
-        }
-
-        $header = fread($handle, 4);
-        fclose($handle);
+        $header = file_get_contents($filepath, false, null, 0, 4);
 
         foreach ($executableSignatures as $signature) {
             if (strpos($header, $signature) === 0) {
@@ -341,7 +355,7 @@ class FileUploader
             UPLOAD_ERR_NO_FILE => 'Es wurde keine Datei hochgeladen',
             UPLOAD_ERR_NO_TMP_DIR => 'Temporärer Ordner fehlt',
             UPLOAD_ERR_CANT_WRITE => 'Fehler beim Schreiben der Datei auf die Festplatte',
-            UPLOAD_ERR_EXTENSION => 'Eine PHP-Erweiterung hat den Upload gestoppt',
+            UPLOAD_ERR_EXTENSION  => 'Eine PHP-Erweiterung hat den Upload gestoppt',
         ];
 
         return $errors[$errorCode] ?? "Unbekannter Fehler ($errorCode)";
@@ -413,7 +427,7 @@ class FileUploader
      * @param string $errorMessage
      * @return void
      */
-    private function sendErrorResponse(string $errorMessage, int $errorCode = 0): void
+    private function sendErrorResponse(string $errorMessage, int $errorCode=0): void
     {
         http_response_code(400);
         echo json_encode([
