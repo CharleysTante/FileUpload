@@ -21,7 +21,7 @@ if (filter_input(INPUT_GET, 'logout')) {
 
 $error = null;
 if (!empty($_SESSION['loggedin']) || doLogin($error, $userName, $pwdHash)) {
-    $tmpl = './view/upload.html';     // protected area when logged in
+    $tmpl = './view/upload.phtml';    // protected area when logged in
 }
 else {
     $tmpl = './view/login.phtml';     // show login form

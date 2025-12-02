@@ -1,0 +1,43 @@
+<h1>Datei-Upload Formular</h1>
+
+    <!-- progress bar and message container -->
+    <div class="progress-container">
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+            <div class="progress-text">0%</div>
+        </div>
+        <div class="progress-details">
+            <span class="progress-speed">-</span>
+            <span class="progress-time">-</span>
+        </div>
+        <div class="message-container"></div>
+    </div>
+
+    <form id="uploadForm" action="./doUpload.php" method="post" enctype="multipart/form-data">
+        <div class="upload-field-group">
+            <?php for ($i = 1; $i <= 3; $i++): ?>
+            <div class="upload-field-wrapper">
+                <div class="section-header">Feld <?= $i ?>:</div>
+                <div class="upload-section" id="section<?= $i ?>">
+                    <div class="text-field-container">
+                        <input type="text" class="text-field" id="textField<?= $i ?>" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
+                        <button type="button" class="clear-btn" data-field="<?= $i ?>" title="Alle Dateien aus diesem Feld löschen">
+                            <span class="cross-icon"></span>
+                        </button>
+                    </div>
+                    <input type="file"
+                           class="hidden-input"
+                           id="actualFileInput<?= $i ?>"
+                           name="field[<?= $i ?>][]"
+                           multiple>
+                    <button type="button" class="browse-btn" data-field="<?= $i ?>">Dateien auswählen</button>
+                    <div class="file-info" id="fileInfo<?= $i ?>"></div>
+                </div>
+            </div>
+            <?php endfor; ?>
+        </div>
+        <button type="submit" class="submit-btn">Hochladen</button>
+    </form>
+    <script src="./view/js/uploadForm.js"></script>
+
+    <p style="margin-top:3em;"><a href="?logout=1">Abmelden</a></p>
