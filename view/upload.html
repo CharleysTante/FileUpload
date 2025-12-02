@@ -1,4 +1,4 @@
-    <h1>Datei-Upload Formular</h1>
+<h1>Datei-Upload Formular</h1>
 
     <!-- Fortschrittsbalken und Nachrichtencontainer -->
     <div class="progress-container">
@@ -23,7 +23,12 @@
             <!-- Feld 1 -->
             <div class="section-header">Feld 1:</div>
             <div class="upload-section" id="section1">
-                <input type="text" class="text-field" id="textField1" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
+                <div class="text-field-container">
+                    <input type="text" class="text-field" id="textField1" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
+                    <button type="button" class="clear-btn" data-field="1" title="Alle Dateien aus diesem Feld löschen">
+                        <span class="cross-icon"></span>
+                    </button>
+                </div>
                 <button type="button" class="browse-btn" data-field="1">Dateien auswählen</button>
                 <div class="file-info" id="fileInfo1"></div>
             </div>
@@ -31,7 +36,12 @@
             <!-- Feld 2 -->
             <div class="section-header">Feld 2:</div>
             <div class="upload-section" id="section2">
-                <input type="text" class="text-field" id="textField2" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
+                <div class="text-field-container">
+                    <input type="text" class="text-field" id="textField2" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
+                    <button type="button" class="clear-btn" data-field="2" title="Alle Dateien aus diesem Feld löschen">
+                        <span class="cross-icon"></span>
+                    </button>
+                </div>
                 <button type="button" class="browse-btn" data-field="2">Dateien auswählen</button>
                 <div class="file-info" id="fileInfo2"></div>
             </div>
@@ -39,7 +49,12 @@
             <!-- Feld 3 -->
             <div class="section-header">Feld 3:</div>
             <div class="upload-section" id="section3">
-                <input type="text" class="text-field" id="textField3" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
+                <div class="text-field-container">
+                    <input type="text" class="text-field" id="textField3" placeholder="Dateien hier per Drag & Drop ablegen oder über Button auswählen" readonly>
+                    <button type="button" class="clear-btn" data-field="3" title="Alle Dateien aus diesem Feld löschen">
+                        <span class="cross-icon"></span>
+                    </button>
+                </div>
                 <button type="button" class="browse-btn" data-field="3">Dateien auswählen</button>
                 <div class="file-info" id="fileInfo3"></div>
             </div>

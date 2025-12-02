@@ -46,26 +46,55 @@ class FileUploadUI {
             const textField = document.getElementById(`textField${i}`);
             const fileInput = document.getElementById(`actualFileInput${i}`);
             const browseBtn = document.querySelector(`.browse-btn[data-field="${i}"]`);
+            const clearBtn = document.querySelector(`.clear-btn[data-field="${i}"]`);
 
-            if (!textField || !fileInput || !browseBtn) {
+            if (!textField || !fileInput || !browseBtn || !clearBtn) {
                 console.warn(`Elemente für Feld ${i} nicht gefunden`);
                 return;
             }
 
             // text field click event
             textField.addEventListener('click', this.createTextFieldHandler(fileInput));
-            
+
             // button click event
             browseBtn.addEventListener('click', this.createButtonHandler(fileInput));
             
+            // clear button click event
+            clearBtn.addEventListener('click', (e) => this.clearField(e, i));
+
             // file input change
             fileInput.addEventListener('change', (e) => this.updateTextField(e, i, textField));
-            
+
             // drag & drop events
             this.setupDragAndDrop(i, textField, fileInput);
         } catch (error) {
             console.error(`Fehler bei Initialisierung von Feld ${i}:`, error);
         }
+    }
+
+    // method for deleting a specific text field
+    clearField(event, fieldId) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const fileInput = document.getElementById(`actualFileInput${fieldId}`);
+        const textField = document.getElementById(`textField${fieldId}`);
+        const fileInfo = document.getElementById(`fileInfo${fieldId}`);
+
+        if (fileInput) {
+            // Datei-Input zurücksetzen
+            fileInput.value = '';
+        }
+
+        if (textField) {
+            textField.value = '';
+        }
+
+        if (fileInfo) {
+            fileInfo.textContent = '';
+        }
+
+        console.log(`Feld ${fieldId} wurde geleert`);
     }
 
     createTextFieldHandler(fileInput) {

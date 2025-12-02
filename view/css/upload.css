@@ -1,4 +1,11 @@
 /* CSS for file upload */
+:root {
+--button-size: 32px;
+--button-border: 2px;
+--text-field-margin: 10px;
+--button-total: calc(var(--button-size) + var(--button-border)*2 + var(--text-field-margin));
+}
+
 body {
     font-family: Arial, sans-serif;
     max-width: 600px;
@@ -29,14 +36,88 @@ body {
     position: relative;
 }
 
-.text-field {
-    width: 100%;
-    padding: 10px;
+/* container for text field and clear button */
+.text-field-container {
+    position: relative;
+    display: flex;
+    align-items: center;
     margin-bottom: 10px;
+}
+
+.text-field {
+    width: 90%;                                 /* fallback for very old browsers */
+    width: calc(100% - var(--button-total));    /* leave space for the button     */
+    padding: 10px;
+    margin-bottom: 0;
     border: 1px solid #ddd;
     border-radius: 4px;
     box-sizing: border-box;
     cursor: default;
+    flex-grow: 1;
+    margin-right: var(--text-field-margin);     /* distance to button */
+}
+
+/* style for the round clear button */
+.clear-btn {
+    width: var(--button-size);
+    height: var(--button-size);
+    border-radius: 50%;
+    background-color: #f44336;
+    border: calc(var(--button-border)) solid #fff;
+    box-sizing: border-box;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    position: relative;
+}
+
+.clear-btn:hover {
+    background-color: #d32f2f;
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.clear-btn:active {
+    transform: scale(0.95);
+}
+
+/* style for the diagonal cross */
+.cross-icon {
+    display: block;
+    width: 17px;    /* 16px + 6.25% = 17px */
+    height: 17px;   /* 16px + 6.25% = 17px */
+    position: relative;
+}
+
+.cross-icon::before,
+.cross-icon::after {
+    content: '';
+    position: absolute;
+    background-color: white;
+    border-radius: 1px;
+    box-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.cross-icon::before {
+    width: 17px;    /* exakt 6.25% länger als 16px */
+    height: 5px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.cross-icon::after {
+    width: 5px;
+    height: 17px;   /* exakt 6.25% länger als 16px */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .browse-btn {
