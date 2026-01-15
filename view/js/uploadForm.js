@@ -316,46 +316,6 @@ class FileUploadUI {
         this.lastTime = null;
     }
 
-    // resets the progress bar IMMEDIATELY without animation
-    resetProgressBarImmediately() {
-        // do reset timer
-        this.clearHideProgressTimer();
-
-        // reset upload metrics
-        this.resetUploadMetrics();
-
-        const progressContainer = document.querySelector('.progress-container');
-        const progressFill  = document.querySelector('.progress-fill');
-        const progressText  = document.querySelector('.progress-text');
-        const progressSpeed = document.querySelector('.progress-speed');
-        const progressTime  = document.querySelector('.progress-time');
-
-        if (!progressFill || !progressText || !progressSpeed || !progressTime) {
-            return;
-        }
-
-        progressFill.classList.add('no-transition');
-        progressFill.style.width = '0%';
-        progressText.textContent = '0%';
-        progressText.style.left  = '50%';
-        progressText.classList.remove('white-text');
-        progressSpeed.textContent = 'Geschwindigkeit: -';
-        progressTime.textContent  = 'Verbleibend: -';
-
-        this.showMessage('', '');
-
-        if (progressContainer) {
-            progressContainer.style.display = 'block';
-        }
-
-        // do reactivate transition after a short delay
-        setTimeout(() => {
-            if (progressFill) {
-                progressFill.classList.remove('no-transition');
-            }
-        }, 50);
-    }
-
     uploadWithProgress(formData) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
