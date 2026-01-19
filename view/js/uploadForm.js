@@ -249,7 +249,6 @@ class FileUploadUI {
 
     async handleSubmit(event) {
         event.preventDefault();
-        const formData = new FormData(event.target);
 
         // check whether files have been selected
         if (! this.checkFilesSelected()) {
@@ -270,7 +269,8 @@ class FileUploadUI {
         this.clearHideProgressTimer();
 
         try {
-            const result = await this.uploadWithProgress(formData);
+            const formData = new FormData(event.target);
+            const result   = await this.uploadWithProgress(formData);
 
             if (result.success) {
                 let successMessage = `<div>${result.message}</div>`;
