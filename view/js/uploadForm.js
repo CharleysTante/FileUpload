@@ -6,6 +6,7 @@ class FileUploadUI {
         this.lastTime = null;
         this.hideProgressTimer = null;
         this.postMaxSize = null;
+        this.maxFileUploads = null;
         this.initializeEvents();
         this.loadServerConfig();
     }
@@ -16,7 +17,8 @@ class FileUploadUI {
             const result = await response.json();
 
             if (result.success && result.config) {
-                this.postMaxSize = result.config.post_max_size;
+                this.postMaxSize    = result.config.post_max_size;
+                this.maxFileUploads = result.config.max_file_uploads;
                 console.log('Server-Konfiguration geladen:', result.config);
             } else {
                 console.warn('Konfiguration konnte nicht geladen werden:', result.error);
@@ -227,6 +229,24 @@ class FileUploadUI {
         return true;
     }
 
+    // check total file count against server configuration
+    checkFileCount() {
+        let totalFiles = 0;
+        for (let i = 1; i <= this.fieldCount; i++) {
+            const fileInput = document.getElementById(`actualFileInput${i}`);
+            if (fileInput) {
+                totalFiles += fileInput.files.length;
+            }
+        }
+
+        if (this.maxFileUploads !== null && totalFiles > this.maxFileUploads) {
+            alert(`Zu viele Dateien (${totalFiles}) ausgewählt!`
+                + ` Maximal ${this.maxFileUploads} Dateien sind zulässig!`);
+            return false;
+        }
+        return true;
+    }
+
     async handleSubmit(event) {
         event.preventDefault();
         const formData = new FormData(event.target);
@@ -239,6 +259,11 @@ class FileUploadUI {
 
         // check total file size against server limits
         if (! this.checkTotalSize()) {
+            return;
+        }
+
+        // check total file count against server limits
+        if (! this.checkFileCount()) {
             return;
         }
 
