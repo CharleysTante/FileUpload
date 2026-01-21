@@ -406,6 +406,7 @@ class FileUploadUI {
             });
 
             xhr.open('POST', 'doUpload.php');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
             xhr.timeout = 30000;
             xhr.send(formData);
         });
